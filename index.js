@@ -15,7 +15,7 @@ const {
 
 const TOKEN = process.env.TOKEN;
 const TICKET_CATEGORY_ID = "1541179201648992296";
-const STAFF_ROLE_ID = "1542245862317490288";
+const STAFF_ROLE_ID = "1536191456694239271";
 
 const client = new Client({
     intents: [
@@ -98,7 +98,6 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             try {
-                // Creamos el canal de forma segura usando la estructura que Discord acepta sin errores de caché
                 const channel = await interaction.guild.channels.create({
                     name: `ticket-${interaction.user.username}`,
                     type: ChannelType.GuildText,
