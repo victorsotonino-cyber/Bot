@@ -14,6 +14,7 @@ const {
 } = require('discord.js');
 
 const TOKEN = process.env.TOKEN;
+const TICKET_CATEGORY_ID = "1541179201648992296";
 const STAFF_ROLE_ID = "1542245862317490288";
 
 const client = new Client({
@@ -51,7 +52,6 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on('interactionCreate', async interaction => {
-    // 1. Comando /say
     if (interaction.isChatInputCommand() && interaction.commandName === 'say') {
         if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
             return interaction.reply({ content: 'No tienes permisos para usar este comando.', ephemeral: true });
@@ -61,7 +61,6 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ content: 'Mensaje enviado con éxito.', ephemeral: true });
     }
 
-    // 2. Mostrar el panel principal de tickets
     if (interaction.isChatInputCommand() && interaction.commandName === 'ticket') {
         const embed = new EmbedBuilder()
             .setColor('#57F287')
@@ -94,27 +93,27 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [embed], components: [row1, row2] });
     }
 
-    // 3. Botones interactivos
     if (interaction.isButton()) {
         if (interaction.customId.startsWith('ticket_')) {
             await interaction.deferReply({ ephemeral: true });
 
             try {
-                // Creamos el canal suelto para probar si la categoría era la del problema
+                // Creamos el canal dentro de tu categoría y con permisos seguros por ID numérico exacto de objeto
                 const channel = await interaction.guild.channels.create({
                     name: `ticket-${interaction.user.username}`,
                     type: ChannelType.GuildText,
+                    parent: TICKET_CATEGORY_ID,
                     permissionOverwrites: [
                         {
-                            id: interaction.guild.id,
+                            id: interaction.guild.id, // @everyone
                             deny: [PermissionsBitField.Flags.ViewChannel],
                         },
                         {
-                            id: interaction.user.id,
+                            id: interaction.user.id, // Usuario que abrió el ticket
                             allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                         },
                         {
-                            id: STAFF_ROLE_ID,
+                            id: STAFF_ROLE_ID, // Rol de staff
                             allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                         },
                     ],
