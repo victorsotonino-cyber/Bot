@@ -118,14 +118,24 @@ client.on('interactionCreate', async interaction => {
                     ],
                 });
 
+                // Embed con diseño profesional y formal
                 const ticketEmbed = new EmbedBuilder()
-                    .setColor('#57F287')
-                    .setTitle('🎟️ Canal de Ticket Abierto')
-                    .setDescription(`Gracias por abrir ticket. En unos momentos un <@&${STAFF_ROLE_ID}> te va a contestar.`);
+                    .setColor('#2B2D31')
+                    .setTitle('🔒 Sistema de Gestión de Tickets')
+                    .setDescription(
+                        'Gracias por ponerte en contacto con el equipo de **Black Market**.\n\n' +
+                        'Un miembro de nuestro <@&' + STAFF_ROLE_ID + '> se encargará de atender tu solicitud a la brevedad posible. Por favor, detalla tu consulta o motivo de apertura en este canal.'
+                    )
+                    .addFields(
+                        { name: '👤 Usuario', value: `<@${interaction.user.id}>`, inline: true },
+                        { name: '📌 Estado', value: '🟢 Pendiente de atención', inline: true }
+                    )
+                    .setFooter({ text: 'Black Market • Sistema de Soporte Seguro', iconURL: interaction.guild.iconURL() })
+                    .setTimestamp();
 
                 const ticketButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('claim_ticket').setLabel('Reclamar').setStyle(ButtonStyle.Success).setEmoji('🛡️'),
-                    new ButtonBuilder().setCustomId('close_ticket').setLabel('Cerrar').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+                    new ButtonBuilder().setCustomId('claim_ticket').setLabel('Reclamar Ticket').setStyle(ButtonStyle.Success).setEmoji('🛡️'),
+                    new ButtonBuilder().setCustomId('close_ticket').setLabel('Cerrar Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
                 );
 
                 await channel.send({ content: `<@${interaction.user.id}> | <@&${STAFF_ROLE_ID}>`, embeds: [ticketEmbed], components: [ticketButtons] });
@@ -141,15 +151,23 @@ client.on('interactionCreate', async interaction => {
                 return interaction.reply({ content: '❌ Solo el personal de Staff puede reclamar este ticket.', ephemeral: true });
             }
 
-            const claimedEmbed = new EmbedBuilder()
+            const currentEmbed = interaction.message.embeds[0];
+            const updatedEmbed = EmbedBuilder.from(currentEmbed)
                 .setColor('#3498DB')
-                .setDescription(`🛡️ Este ticket ha sido reclamado por **${interaction.user.tag}**.`);
+                .setFields(
+                    { name: '👤 Usuario', value: currentEmbed.fields[0].value, inline: true },
+                    { name: '📌 Estado', value: `🛡️ Atendido por **${interaction.user.tag}**`, inline: true }
+                );
 
-            await interaction.update({ embeds: [interaction.message.embeds[0], claimedEmbed], components: [interaction.message.components[0]] });
+            await interaction.update({ embeds: [updatedEmbed], components: [interaction.message.components[0]] });
+            await interaction.followUp({ content: `> 🛡️ El miembro del staff **${interaction.user.tag}** ha reclamado este ticket.` });
         }
 
         if (interaction.customId === 'close_ticket') {
-            await interaction.reply({ content: '🔒 Cerrando este ticket en 3 segundos...' });
+            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && interaction.user.id !== interaction.channel.topic) {
+                // Validación opcional para que solo staff o el creador cierre (por ahora abierto al staff)
+            }
+            await interaction.reply({ content: '🔒 **Cerrando este ticket en 3 segundos...** Guardando historial y eliminando canal.' });
             setTimeout(async () => {
                 try {
                     await interaction.channel.delete();
