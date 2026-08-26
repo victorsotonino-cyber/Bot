@@ -1,17 +1,16 @@
-const { 
-    Client, 
-    GatewayIntentBits, 
-    REST, 
-    Routes, 
-    SlashCommandBuilder, 
-    ChannelType, 
-    PermissionsBitField, 
-    ActionRowBuilder, 
-    ButtonBuilder, 
-    ButtonStyle, 
-    StringSelectMenuBuilder, 
+const {
+    Client,
+    GatewayIntentBits,
+    REST,
+    Routes,
+    SlashCommandBuilder,
+    ChannelType,
+    PermissionsBitField,
+    ActionRowBuilder,
+    ButtonBuilder,
+    ButtonStyle,
     EmbedBuilder,
-    Events 
+    Events
 } = require('discord.js');
 
 const TOKEN = process.env.TOKEN;
@@ -28,11 +27,11 @@ const client = new Client({
     ]
 });
 
-// Comandos esenciales (Solo lo importante)
+// Comandos esenciales
 const commands = [
-    new SlashCommandBuilder().setName('ayuda').setDescription('Muestra el centro de asistencia'),
-    new SlashCommandBuilder().setName('tienda').setDescription('Enlace y acceso a la tienda web oficial'),
-    new SlashCommandBuilder().setName('ticket').setDescription('Despliega el panel principal de soporte'),
+    new SlashCommandBuilder().setName('ayuda').setDescription('Muestra el centro de ayuda'),
+    new SlashCommandBuilder().setName('tienda').setDescription('Enlace y acceso a la tienda'),
+    new SlashCommandBuilder().setName('ticket').setDescription('Despliega el panel principal de tickets'),
     new SlashCommandBuilder().setName('ping').setDescription('Mide la latencia del bot')
 ].map(command => command.toJSON());
 
@@ -49,131 +48,48 @@ client.once(Events.ClientReady, async () => {
 });
 
 client.on('interactionCreate', async interaction => {
-    try {
-        if (interaction.isChatInputCommand()) {
-            const { commandName } = interaction;
+    // 1. Manejo del comando /ticket para enviar el panel visual
+    if (interaction.isChatInputCommand() && interaction.commandName === 'ticket') {
+        // Creamos el Embed con la línea lateral verde
+        const embed = new EmbedBuilder()
+            .setColor('#57F287') // Color verde estilo Discord
+            .setDescription(
+                '🎫 **| Panel de soporte**\n\n' +
+                '🟢 Bienvenido al panel de soporte de **Black Market**, en este panel podrás resolver todas tus dudas y problemas.\n\n' +
+                '<:emoji_12:123456789012345678> **- Soporte**\n' +
+                'Abre ticket para resolver tus dudas o preguntas.\n\n' +
+                '<:SeekL_Money:123456789012345678> **- Comprar**\n' +
+                'Abre ticket para comprar algún producto de la tienda.\n\n' +
+                '<:emoji_11:123456789012345678> **- Reclamar**\n' +
+                'Abre ticket para solicitar tu recompensa.\n\n' +
+                '<:emoji_13:123456789012345678> **- Media**\n' +
+                'Abre ticket para solicitar el rol Team media.\n\n' +
+                '<:emoji_1:123456789012345678> **- Postulacion**\n' +
+                'Abre ticket para postularte al staff.\n\n' +
+                '💬 **- Otros**\n' +
+                'Ninguno de los anteriores (Crea ticket para otros asuntos).'
+            );
 
-            if (commandName === 'ayuda') {
-                const embed = new EmbedBuilder()
-                    .setColor('#5865F2')
-                    .setTitle('🛠️ • Centro de Asistencia & Black Market')
-                    .setDescription('Comandos principales disponibles:')
-                    .addFields(
-                        { name: '🎫 `/ticket`', value: 'Despliega el panel de soporte con menú desplegable.' },
-                        { name: '🛍️ `/tienda`', value: 'Acceso directo a la tienda web y métodos de pago.' }
-                    )
-                    .setTimestamp();
+        // Creamos los botones interactivos uno debajo del otro o en filas
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_soporte').setLabel('Soporte').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678'), // Reemplaza con el ID numérico de tu emoji :emoji_12:
+            new ButtonBuilder().setCustomId('ticket_comprar').setLabel('Comprar').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678'),
+            new ButtonBuilder().setCustomId('ticket_reclamar').setLabel('Reclamar').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678')
+        );
 
-                await interaction.reply({ embeds: [embed], ephemeral: true });
-            } 
-            else if (commandName === 'tienda') {
-                const embed = new EmbedBuilder()
-                    .setColor('#22c55e')
-                    .setTitle('🛒 Tienda Oficial • Black Market')
-                    .setDescription('Explora nuestro catálogo digital y adquiere tus productos de forma segura.\n\n🔗 ' + TIENDA_URL)
-                    .setTimestamp();
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('ticket_media').setLabel('Media').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678'),
+            new ButtonBuilder().setCustomId('ticket_postulacion').setLabel('Postulacion').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678'),
+            new ButtonBuilder().setCustomId('ticket_otros').setLabel('Otros').setStyle(ButtonStyle.Secondary).setEmoji('123456789012345678')
+        );
 
-                const row = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setLabel('Visitar Tienda Web')
-                        .setStyle(ButtonStyle.Link)
-                        .setURL(TIENDA_URL)
-                        .setEmoji('🌐'),
-                    new ButtonBuilder()
-                        .setCustomId('btn_ver_colombia')
-                        .setLabel('Ver Nequi')
-                        .setStyle(ButtonStyle.Success)
-                        .setEmoji('💳')
-                );
+        await interaction.reply({ embeds: [embed], components: [row1, row2] });
+    }
 
-                await interaction.reply({ embeds: [embed], components: [row] });
-            }
-            else if (commandName === 'ticket') {
-                const embed = new EmbedBuilder()
-                    .setColor('#2b2d31')
-                    .setTitle('🎫 • Sistema de Soporte & Atención • 🎫')
-                    .setDescription('Selecciona una categoría en el menú de abajo para abrir un ticket privado con el staff:\n\n' +
-                        '📋 **- Soporte General**\n' +
-                        '🛍️ **- Compras / Pagos**\n' +
-                        '🎁 **- Reclamar Premios**\n' +
-                        '⚠️ **- Reportes / Quejas**')
-                    .setTimestamp();
-
-                const row = new ActionRowBuilder().addComponents(
-                    new StringSelectMenuBuilder()
-                        .setCustomId('select_ticket_category')
-                        .setPlaceholder('Selecciona el motivo de tu ticket...')
-                        .addOptions([
-                            { label: 'Soporte General', value: 'cat_soporte', emoji: '📋' },
-                            { label: 'Comprar / Pagos', value: 'cat_comprar', emoji: '🛍️' },
-                            { label: 'Reclamar Recompensa', value: 'cat_reclamar', emoji: '🎁' },
-                            { label: 'Quejas / Reportes', value: 'cat_quejas', emoji: '⚠️' }
-                        ])
-                );
-
-                await interaction.reply({ embeds: [embed], components: [row] });
-            }
-            else if (commandName === 'ping') {
-                await interaction.reply({ content: `🏓 Pong! \`${client.ws.ping}ms\``, ephemeral: true });
-            }
-        } 
-        else if (interaction.isStringSelectMenu()) {
-            if (interaction.customId === 'select_ticket_category') {
-                const guild = interaction.guild;
-                const user = interaction.user;
-                const categoryValue = interaction.values[0];
-
-                const categoryNames = {
-                    'cat_soporte': 'soporte',
-                    'cat_comprar': 'compras',
-                    'cat_reclamar': 'premios',
-                    'cat_quejas': 'reporte'
-                };
-
-                const channelName = `${categoryNames[categoryValue] || 'ticket'}-${user.username}`;
-
-                const ticketChannel = await guild.channels.create({
-                    name: channelName,
-                    type: ChannelType.GuildText,
-                    parent: TICKET_CATEGORY_ID || null,
-                    permissionOverwrites: [
-                        { id: guild.id, denied: [PermissionsBitField.Flags.ViewChannel] },
-                        { id: user.id, allowed: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
-                        { id: STAFF_ROLE_ID, allowed: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] }
-                    ],
-                });
-
-                const closeRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('btn_close_ticket')
-                        .setLabel('Cerrar Ticket')
-                        .setStyle(ButtonStyle.Danger)
-                        .setEmoji('🔒')
-                );
-
-                const welcomeEmbed = new EmbedBuilder()
-                    .setColor('#5865F2')
-                    .setTitle(`🎫 Ticket: ${user.username}`)
-                    .setDescription('Describe tu situación detalladamente. Un miembro del Staff te atenderá pronto.')
-                    .setTimestamp();
-
-                await ticketChannel.send({ content: `¡Hola ${user} <@&${STAFF_ROLE_ID}>!`, embeds: [welcomeEmbed], components: [closeRow] });
-                await interaction.reply({ content: `✅ ¡Canal creado: ${ticketChannel}!`, ephemeral: true });
-            }
-        }
-        else if (interaction.isButton()) {
-            if (interaction.customId === 'btn_ver_colombia') {
-                await interaction.reply({ content: '🇨🇴 **Nequi Oficial:** `3216089454` (Juan Guzmán)', ephemeral: true });
-            }
-            else if (interaction.customId === 'btn_close_ticket') {
-                await interaction.reply({ content: '🔒 Este ticket se cerrará en 5 segundos...' });
-                setTimeout(() => { interaction.channel.delete().catch(() => {}); }, 5000);
-            }
-        }
-    } catch (error) {
-        console.error(error);
-        if (!interaction.replied && !interaction.deferred) {
-            await interaction.reply({ content: '❌ Ocurrió un error.', ephemeral: true }).catch(() => {});
+    // 2. Manejo cuando presionan los botones de tickets
+    if (interaction.isButton()) {
+        if (interaction.customId.startsWith('ticket_')) {
+            await interaction.reply({ content: '¡Pronto se abrirá tu canal de ticket privado!', ephemeral: true });
         }
     }
 });
