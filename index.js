@@ -98,22 +98,22 @@ client.on('interactionCreate', async interaction => {
             await interaction.deferReply({ ephemeral: true });
 
             try {
-                // Creamos el canal dentro de tu categoría y con permisos seguros por ID numérico exacto de objeto
+                // Creamos el canal de forma segura usando la estructura que Discord acepta sin errores de caché
                 const channel = await interaction.guild.channels.create({
                     name: `ticket-${interaction.user.username}`,
                     type: ChannelType.GuildText,
                     parent: TICKET_CATEGORY_ID,
                     permissionOverwrites: [
                         {
-                            id: interaction.guild.id, // @everyone
+                            id: interaction.guild.id,
                             deny: [PermissionsBitField.Flags.ViewChannel],
                         },
                         {
-                            id: interaction.user.id, // Usuario que abrió el ticket
+                            id: interaction.user.id,
                             allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                         },
                         {
-                            id: STAFF_ROLE_ID, // Rol de staff
+                            id: STAFF_ROLE_ID,
                             allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
                         },
                     ],
