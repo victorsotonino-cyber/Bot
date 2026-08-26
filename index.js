@@ -14,7 +14,6 @@ const {
 } = require('discord.js');
 
 const TOKEN = process.env.TOKEN;
-const TICKET_CATEGORY_ID = "1541179201648992296";
 const STAFF_ROLE_ID = "1542245862317490288";
 
 const client = new Client({
@@ -95,17 +94,16 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [embed], components: [row1, row2] });
     }
 
-    // 3. Botones interactivos (Crear, Reclamar y Cerrar tickets)
+    // 3. Botones interactivos
     if (interaction.isButton()) {
-        // Creación del ticket al presionar las categorías del panel
         if (interaction.customId.startsWith('ticket_')) {
             await interaction.deferReply({ ephemeral: true });
 
             try {
+                // Creamos el canal suelto para probar si la categoría era la del problema
                 const channel = await interaction.guild.channels.create({
                     name: `ticket-${interaction.user.username}`,
                     type: ChannelType.GuildText,
-                    parent: TICKET_CATEGORY_ID,
                     permissionOverwrites: [
                         {
                             id: interaction.guild.id,
@@ -122,7 +120,6 @@ client.on('interactionCreate', async interaction => {
                     ],
                 });
 
-                // Embed de bienvenida dentro del ticket creado
                 const ticketEmbed = new EmbedBuilder()
                     .setColor('#57F287')
                     .setTitle('🎟️ Canal de Ticket Abierto')
@@ -136,12 +133,11 @@ client.on('interactionCreate', async interaction => {
                 await channel.send({ content: `<@${interaction.user.id}> | <@&${STAFF_ROLE_ID}>`, embeds: [ticketEmbed], components: [ticketButtons] });
                 await interaction.editReply({ content: `¡Ticket creado con éxito! Ve al canal: ${channel}` });
             } catch (error) {
-                console.error(error);
-                await interaction.editReply({ content: 'Hubo un error al crear el canal de ticket.' });
+                console.error("ERROR REAL:", error);
+                await interaction.editReply({ content: `Error al crear: ${error.message}` });
             }
         }
 
-        // Botón de Reclamar Ticket (Solo Staff)
         if (interaction.customId === 'claim_ticket') {
             if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
                 return interaction.reply({ content: '❌ Solo el personal de Staff puede reclamar este ticket.', ephemeral: true });
@@ -154,7 +150,6 @@ client.on('interactionCreate', async interaction => {
             await interaction.update({ embeds: [interaction.message.embeds[0], claimedEmbed], components: [interaction.message.components[0]] });
         }
 
-        // Botón de Cerrar Ticket
         if (interaction.customId === 'close_ticket') {
             await interaction.reply({ content: '🔒 Cerrando este ticket en 3 segundos...' });
             setTimeout(async () => {
