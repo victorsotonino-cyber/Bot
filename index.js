@@ -14,13 +14,13 @@ const ticketInactivity = new Map();
 
 client.once('ready', async () => {
     console.log(`¡Bot conectado como ${client.user.tag}!`);
-    client.user.setActivity('Black Market | /ticket', { type: 3 });
+    client.user.setActivity('Black Market | /setup-ticket', { type: 3 });
 
     // Registro de comandos de barra (Slash Commands)
     const commands = [
         new SlashCommandBuilder()
             .setName('setup-ticket')
-            .setDescription('Envía el panel con secciones y emojis de Black Market')
+            .setDescription('Envía el panel colorido de tickets de Black Market')
             .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
         new SlashCommandBuilder()
             .setName('cerrar')
@@ -100,41 +100,46 @@ client.on('messageCreate', async message => {
 // Manejador de interacciones
 client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
-        const { commandName, options, channel, member, user, guild } = interaction;
+        const { commandName, options, channel, user, guild } = interaction;
 
-        // /setup-ticket (Panel con tus emojis personalizados)
+        // /setup-ticket (Panel colorido y decorado)
         if (commandName === 'setup-ticket') {
             const embed = new EmbedBuilder()
-                .setTitle('🛒 Black Market — Centro de Soporte')
-                .setDescription('Selecciona una categoría en el menú desplegable de abajo según el motivo de tu consulta para abrir un ticket privado con nuestro equipo.')
-                .addFields(
-                    { name: ' <:SeekL_Money:1541133185432293488> Compras y Pagos', value: 'Adquiere productos o reporta inconvenientes con pagos.', inline: false },
-                    { name: ' <:emoji_3:1541134633033539664> Soporte Técnico', value: 'Problemas al recibir artículos o fallas con servicios.', inline: false },
-                    { name: ' <:emoji_18:1542545895608942602> Dudas Generales', value: 'Consultas sobre la tienda o stock disponible.', inline: false }
+                .setTitle('<:SeekL_Money:1541133185432293488>  BLACK MARKET • CENTRO DE SOPORTE  <:SeekL_Money:1541133185432293488>')
+                .setDescription(
+                    '¡Bienvenido al sistema oficial de atención al cliente de **Black Market**! <:emoji_13:1541198277888835614>\n\n' +
+                    'Para brindarte una atención rápida, ordenada y personalizada, por favor selecciona el departamento adecuado en el menú desplegable de abajo. <:emoji_17:1541450983366987977>\n\n' +
+                    '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
                 )
-                .setColor('#111111')
+                .addFields(
+                    { name: '<:SeekL_Money:1541133185432293488>  Compras y Pagos', value: 'Adquiere productos exclusivos, saldo o reporta transacciones.', inline: false },
+                    { name: '<:emoji_3:1541134633033539664>  Soporte Técnico', value: 'Problemas al recibir artículos o fallas con algún servicio adquirido.', inline: false },
+                    { name: '<:emoji_18:1542545895608942602>  Dudas Generales', value: 'Consultas sobre stock, precios o información general de la tienda.', inline: false }
+                )
+                .setColor('#5865F2') // Color vibrante e llamativo
+                .setImage('https://i.imgur.com/37m4xJ9.png') // Línea decorativa visual (puedes cambiarla o quitarla)
                 .setThumbnail(guild.iconURL({ dynamic: true }))
-                .setFooter({ text: 'Black Market • Tienda Premium', iconURL: client.user.displayAvatarURL() });
+                .setFooter({ text: 'Black Market • Todos los derechos reservados', iconURL: client.user.displayAvatarURL() });
 
             const selectMenu = new StringSelectMenuBuilder()
                 .setCustomId('seleccionar_seccion_ticket')
-                .setPlaceholder('📂 Selecciona el tipo de ticket...')
+                .setPlaceholder('✨ Haz clic aquí para elegir una categoría...')
                 .addOptions([
                     {
                         label: 'Compras y Pagos',
-                        description: 'Abrir un ticket para compras o pagos',
+                        description: 'Atención exclusiva para compras y transacciones',
                         value: 'categoria_compras',
                         emoji: { name: 'SeekL_Money', id: '1541133185432293488' }
                     },
                     {
                         label: 'Soporte Técnico',
-                        description: 'Abrir un ticket por fallas o ayuda técnica',
+                        description: 'Ayuda con problemas de entrega o fallas',
                         value: 'categoria_soporte',
                         emoji: { name: 'emoji_3', id: '1541134633033539664' }
                     },
                     {
                         label: 'Dudas Generales',
-                        description: 'Abrir un ticket para preguntas generales',
+                        description: 'Preguntas sobre la tienda y productos',
                         value: 'categoria_dudas',
                         emoji: { name: 'emoji_18', id: '1542545895608942602' }
                     }
@@ -143,7 +148,7 @@ client.on('interactionCreate', async interaction => {
             const row = new ActionRowBuilder().addComponents(selectMenu);
 
             await channel.send({ embeds: [embed], components: [row] });
-            return interaction.reply({ content: '✅ Panel de tickets configurado correctamente con tus secciones y emojis.', ephemeral: true });
+            return interaction.reply({ content: '✅ ¡Panel colorido de tickets enviado con éxito!', ephemeral: true });
         }
 
         if (!channel.name.startsWith('ticket-')) {
@@ -184,7 +189,7 @@ client.on('interactionCreate', async interaction => {
 
         if (commandName === 'ayuda') {
             const ayudaEmbed = new EmbedBuilder()
-                .setTitle('📌 Comandos de Gestión - Tickets')
+                .setTitle('<:emoji_14:1541198324160536696> Comandos de Gestión - Tickets')
                 .setDescription('Lista de comandos disponibles para el manejo interno:')
                 .addFields(
                     { name: '/setup-ticket', value: 'Envía el panel principal (Admin).' },
@@ -199,7 +204,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // Manejo del Menú Desplegable (Creación según la sección elegida)
+    // Manejo del Menú Desplegable (Creación del ticket con diseño colorido)
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'seleccionar_seccion_ticket') {
             const guild = interaction.guild;
@@ -208,16 +213,20 @@ client.on('interactionCreate', async interaction => {
 
             let nombreCategoria = 'soporte';
             let tituloCategoria = 'Soporte General';
+            let emojiCategoria = '<:emoji_3:1541134633033539664>';
 
             if (seleccion === 'categoria_compras') {
                 nombreCategoria = 'compras';
                 tituloCategoria = 'Compras y Pagos';
+                emojiCategoria = '<:SeekL_Money:1541133185432293488>';
             } else if (seleccion === 'categoria_soporte') {
                 nombreCategoria = 'tecnico';
                 tituloCategoria = 'Soporte Técnico';
+                emojiCategoria = '<:emoji_3:1541134633033539664>';
             } else if (seleccion === 'categoria_dudas') {
                 nombreCategoria = 'dudas';
                 tituloCategoria = 'Dudas Generales';
+                emojiCategoria = '<:emoji_18:1542545895608942602>';
             }
 
             const canalExistente = guild.channels.cache.find(c => c.name === `ticket-${nombreCategoria}-${user.username.toLowerCase()}`);
@@ -249,27 +258,32 @@ client.on('interactionCreate', async interaction => {
             ticketInactivity.set(ticketChannel.id, { userId: user.id, hoursInactive: 0 });
 
             const embedTicket = new EmbedBuilder()
-                .setTitle(`🎫 Ticket • ${tituloCategoria}`)
-                .setDescription(`Gracias por contactar con **Black Market**. Has seleccionado la sección de **${tituloCategoria}**.\n\n> Detalla tu solicitud con calma y un miembro del staff te atenderá en breve.`)
-                .addFields(
-                    { name: '📌 Departamento', value: `\`${tituloCategoria}\``, inline: true },
-                    { name: '⚠️ Aviso', value: 'Si dejas de responder por 24 horas, el ticket se cerrará automáticamente.', inline: false }
+                .setTitle(`${emojiCategoria} TICKET • ${tituloCategoria.toUpperCase()} ${emojiCategoria}`)
+                .setDescription(
+                    `¡Hola <@${user.id}>! Gracias por abrir un ticket en **Black Market**.\n\n` +
+                    `Has seleccionado la sección: **${tituloCategoria}** <:emoji_13:1541198277888835614>\n\n` +
+                    `> 📌 **Instrucciones:** Explica detalladamente tu caso, envía comprobantes si es necesario y espera pacientemente. Un miembro del equipo te atenderá lo antes posible.`
                 )
-                .setColor('#2f3136');
+                .addFields(
+                    { name: '<:emoji_17:1541450983366987977> Estado del Canal', value: '`Activo y en espera`', inline: true },
+                    { name: '<:emoji_14:1541198324160536696> Aviso de Inactividad', value: 'Si dejas de responder por **24 horas**, el canal se cerrará automáticamente.', inline: false }
+                )
+                .setColor('#00FFCC') // Color brillante y moderno para el ticket interno
+                .setFooter({ text: 'Black Market • Sistema de Tickets Seguro', iconURL: client.user.displayAvatarURL() });
 
             const rowTicket = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('reclamar_ticket')
-                    .setLabel('🙋‍♂️ Reclamar')
+                    .setLabel('🙋‍♂️ Reclamar Ticket')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
                     .setCustomId('cerrar_ticket_btn')
-                    .setLabel('🔒 Cerrar')
+                    .setLabel('🔒 Cerrar Ticket')
                     .setStyle(ButtonStyle.Danger)
             );
 
-            await ticketChannel.send({ content: `${user} 👋 ¡Canal establecido con éxito!`, embeds: [embedTicket], components: [rowTicket] });
-            await interaction.editReply({ content: `✅ ¡Tu ticket de **${tituloCategoria}** ha sido creado! Entra aquí: ${ticketChannel}` });
+            await ticketChannel.send({ content: `<:emoji_13:1541198277888835614> <@${user.id}> ¡Tu espacio privado ha sido creado con éxito!`, embeds: [embedTicket], components: [rowTicket] });
+            await interaction.editReply({ content: `✅ ¡Ticket creado exitosamente! Dirígete aquí: ${ticketChannel}` });
         }
     }
 
@@ -287,23 +301,23 @@ client.on('interactionCreate', async interaction => {
             const rowModificada = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('reclamar_ticket')
-                    .setLabel(`Atendido por ${staff.username}`)
+                    .setLabel(`✨ Atendido por ${staff.username}`)
                     .setStyle(ButtonStyle.Secondary)
                     .setDisabled(true),
                 new ButtonBuilder()
                     .setCustomId('cerrar_ticket_btn')
-                    .setLabel('🔒 Cerrar')
+                    .setLabel('🔒 Cerrar Ticket')
                     .setStyle(ButtonStyle.Danger)
             );
 
             await message.edit({ components: [rowModificada] });
-            await interaction.reply({ content: `✅ El staff <@${staff.id}> ha tomado este ticket.` });
+            await interaction.reply({ content: `✅ El staff <@${staff.id}> ha tomado oficialmente este ticket.` });
         }
 
         if (interaction.customId === 'cerrar_ticket_btn') {
             ticketInactivity.delete(interaction.channel.id);
             await interaction.reply('🔒 *Este ticket se eliminará en 3 segundos...*');
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+            setTimeout(() => channel.delete().catch(() => {}), 3000);
         }
     }
 });
