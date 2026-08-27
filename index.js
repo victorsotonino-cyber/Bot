@@ -1,21 +1,4 @@
-const {
-    Client,
-    GatewayIntentBits,
-    REST,
-    Routes,
-    SlashCommandBuilder,
-    ChannelType,
-    PermissionsBitField,
-    ActionRowBuilder,
-    ButtonBuilder,
-    ButtonStyle,
-    EmbedBuilder,
-    Events
-} = require('discord.js');
-
-const TOKEN = process.env.TOKEN;
-const TICKET_CATEGORY_ID = "1541179201648992296";
-const STAFF_ROLE_ID = "1536191456694239271";
+const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes, PermissionsBitField } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -26,157 +9,267 @@ const client = new Client({
     ]
 });
 
-const commands = [
-    new SlashCommandBuilder().setName('ayuda').setDescription('Muestra el centro de asistencia'),
-    new SlashCommandBuilder().setName('tienda').setDescription('Enlace y acceso a la tienda'),
-    new SlashCommandBuilder().setName('ticket').setDescription('Despliega el panel principal de soporte'),
-    new SlashCommandBuilder().setName('ping').setDescription('Mide la latencia del bot'),
-    new SlashCommandBuilder()
-        .setName('say')
-        .setDescription('Envía un mensaje a través del bot')
-        .addStringOption(option => 
-            option.setName('mensaje').setDescription('El texto que dirá el bot').setRequired(true)
-        )
-].map(command => command.toJSON());
+// Mapa para rastrear inactividad: { channelId: { userId, hoursInactive } }
+const ticketInactivity = new Map();
 
-client.once(Events.ClientReady, async () => {
-    console.log(`¡Bot Black Market conectado como ${client.user.tag}!`);
+client.once('ready', async () => {
+    console.log(`¡Bot conectado como ${client.user.tag}!`);
+    client.user.setActivity('Black Market | /ticket', { type: 3 });
 
-    const rest = new REST({ version: '10' }).setToken(TOKEN);
+    // Registro de comandos de barra (Slash Commands)
+    const commands = [
+        new SlashCommandBuilder()
+            .setName('setup-ticket')
+            .setDescription('Envía el panel para abrir tickets de Black Market')
+            .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+        new SlashCommandBuilder()
+            .setName('cerrar')
+            .setDescription('Cierra el ticket actual'),
+        new SlashCommandBuilder()
+            .setName('rename')
+            .setDescription('Cambia el nombre del canal del ticket')
+            .addStringOption(option => 
+                option.setName('nombre')
+                    .setDescription('Nuevo nombre para el ticket')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('añadir')
+            .setDescription('Añade a un usuario al ticket actual')
+            .addUserOption(option => 
+                option.setName('usuario')
+                    .setDescription('Usuario a añadir')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('remover')
+            .setDescription('Saca a un usuario del ticket actual')
+            .addUserOption(option => 
+                option.setName('usuario')
+                    .setDescription('Usuario a remover')
+                    .setRequired(true)),
+        new SlashCommandBuilder()
+            .setName('ayuda')
+            .setDescription('Muestra la lista de comandos de tickets disponibles')
+    ].map(command => command.toJSON());
+
+    const rest = new REST({ version: '10' }).setToken('TU_TOKEN_DE_DISCORD_AQUI');
+
     try {
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('¡Comandos esenciales registrados!');
+        await rest.put(
+            Routes.applicationCommands(client.user.id),
+            { body: commands },
+        );
+        console.log('¡Comandos barra (/) registrados correctamente!');
     } catch (error) {
         console.error(error);
     }
+
+    // Tarea en segundo plano: corre cada hora y a las 24 horas cierra el ticket por inactividad
+    setInterval(async () => {
+        for (const [channelId, data] of ticketInactivity.entries()) {
+            const channel = client.channels.cache.get(channelId);
+            if (!channel) {
+                ticketInactivity.delete(channelId);
+                continue;
+            }
+
+            data.hoursInactive += 1;
+
+            if (data.hoursInactive >= 24) {
+                await channel.send('🔒 Este ticket se ha cerrado automáticamente por inactividad (24 horas sin respuesta del usuario).');
+                setTimeout(() => channel.delete().catch(() => {}), 5000);
+                ticketInactivity.delete(channelId);
+            } else {
+                // Etiqueta al usuario cada hora informándole de las horas acumuladas sin contestar
+                await channel.send(`⚠️ <@${data.userId}>, llevas ${data.hoursInactive} hora(s) sin responder en este ticket. Si cumples 24 horas sin contestar, el ticket se cerrará automáticamente.`);
+            }
+        }
+    }, 3600000); // Cada 1 hora
 });
 
-client.on('interactionCreate', async interaction => {
-    if (interaction.isChatInputCommand() && interaction.commandName === 'say') {
-        if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-            return interaction.reply({ content: 'No tienes permisos para usar este comando.', ephemeral: true });
-        }
-        const texto = interaction.options.getString('mensaje');
-        await interaction.channel.send(texto);
-        await interaction.reply({ content: 'Mensaje enviado con éxito.', ephemeral: true });
-    }
+// Reiniciar contador de inactividad si el usuario del ticket escribe un mensaje
+client.on('messageCreate', async message => {
+    if (message.author.bot) return;
 
-    if (interaction.isChatInputCommand() && interaction.commandName === 'ticket') {
-        const embed = new EmbedBuilder()
-            .setColor('#57F287')
-            .setDescription(
-                '🎫 **| Panel de soporte**\n\n' +
-                '🟢 Bienvenido al panel de soporte de **Black Market**, en este panel podrás resolver todas tus dudas y problemas.\n\n' +
-                '<:emoji_12:1541198234372939806> **- Soporte**\n' +
-                'Abre ticket para resolver tus dudas o preguntas.\n\n' +
-                '<:SeekL_Money:1541133185432293488> **- Comprar**\n' +
-                'Abre ticket para comprar algún producto de la tienda.\n\n' +
-                '<:emoji_13:1541198277888835614> **- Media**\n' +
-                'Abre ticket para solicitar el rol Team media.\n\n' +
-                '<:emoji_14:1541198324160536696> **- Postulacion**\n' +
-                'Abre ticket para postularte al staff.\n\n' +
-                '💬 **- Otros**\n' +
-                'Ninguno de los anteriores (Crea ticket para otros asuntos).'
+    if (ticketInactivity.has(message.channel.id)) {
+        const data = ticketInactivity.get(message.channel.id);
+        if (message.author.id === data.userId) {
+            data.hoursInactive = 0; // Resetea el contador a 0 porque ya contestó
+        }
+    }
+});
+
+// Manejador de Comandos Barra (/) y Botones
+client.on('interactionCreate', async interaction => {
+    if (interaction.isChatInputCommand()) {
+        const { commandName, options, channel, member, user, guild } = interaction;
+
+        // /setup-ticket
+        if (commandName === 'setup-ticket') {
+            const embed = new EmbedBuilder()
+                .setTitle('🛒 Black Market - Sistema de Soporte')
+                .setDescription('Haz clic en el botón de abajo para abrir un ticket de compra o soporte técnico.')
+                .setColor('#000000')
+                .setFooter({ text: 'Black Market Tienda Premium' });
+
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('crear_ticket')
+                    .setLabel('📩 Abrir Ticket')
+                    .setStyle(ButtonStyle.Primary)
             );
 
-        const row1 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_soporte').setLabel('Soporte').setStyle(ButtonStyle.Secondary).setEmoji('1541198234372939806'),
-            new ButtonBuilder().setCustomId('ticket_comprar').setLabel('Comprar').setStyle(ButtonStyle.Secondary).setEmoji('1541133185432293488'),
-            new ButtonBuilder().setCustomId('ticket_media').setLabel('Media').setStyle(ButtonStyle.Secondary).setEmoji('1541198277888835614')
-        );
+            await channel.send({ embeds: [embed], components: [row] });
+            return interaction.reply({ content: '✅ Panel de tickets enviado correctamente.', ephemeral: true });
+        }
 
-        const row2 = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_postulacion').setLabel('Postulación').setStyle(ButtonStyle.Secondary).setEmoji('1541198324160536696'),
-            new ButtonBuilder().setCustomId('ticket_otros').setLabel('Otros').setStyle(ButtonStyle.Secondary)
-        );
+        // Comprobación para comandos exclusivos de tickets
+        if (!channel.name.startsWith('ticket-')) {
+            return interaction.reply({ content: '❌ Este comando solo se puede usar dentro de un canal de ticket.', ephemeral: true });
+        }
 
-        await interaction.reply({ embeds: [embed], components: [row1, row2] });
+        // /cerrar
+        if (commandName === 'cerrar') {
+            ticketInactivity.delete(channel.id);
+            await interaction.reply('🔒 Este ticket se cerrará en 5 segundos...');
+            setTimeout(() => channel.delete().catch(() => {}), 5000);
+        }
+
+        // /rename
+        if (commandName === 'rename') {
+            const nuevoNombre = options.getString('nombre');
+            try {
+                await channel.setName(`ticket-${nuevoNombre}`);
+                await interaction.reply(`✅ Canal renombrado exitosamente a: \`ticket-${nuevoNombre}\``);
+            } catch (error) {
+                await interaction.reply({ content: '❌ Hubo un error al cambiar el nombre (puede ser por el límite de cambios de Discord).', ephemeral: true });
+            }
+        }
+
+        // /añadir
+        if (commandName === 'añadir') {
+            const usuario = options.getMember('usuario');
+            await channel.permissionOverwrites.create(usuario, {
+                ViewChannel: true,
+                SendMessages: true,
+                ReadMessageHistory: true
+            });
+            await interaction.reply(`✅ Se ha añadido correctamente a ${usuario} al ticket.`);
+        }
+
+        // /remover
+        if (commandName === 'remover') {
+            const usuario = options.getMember('usuario');
+            await channel.permissionOverwrites.delete(usuario);
+            await interaction.reply(`✅ Se ha retirado el acceso a ${usuario} del ticket.`);
+        }
+
+        // /ayuda
+        if (commandName === 'ayuda') {
+            const ayudaEmbed = new EmbedBuilder()
+                .setTitle('📌 Comandos de Tickets - Black Market')
+                .setDescription('Lista de comandos de barra disponibles:')
+                .addFields(
+                    { name: '/setup-ticket', value: 'Envía el panel de creación (Solo administradores).' },
+                    { name: '/rename <nombre>', value: 'Cambia el nombre del ticket actual.' },
+                    { name: '/cerrar', value: 'Cierra y borra el ticket.' },
+                    { name: '/añadir @usuario', value: 'Añade a un usuario al canal.' },
+                    { name: '/remover @usuario', value: 'Quita el acceso a un usuario.' }
+                )
+                .setColor('#2b2d31');
+            
+            await interaction.reply({ embeds: [ayudaEmbed], ephemeral: true });
+        }
     }
 
+    // Manejo de Botones
     if (interaction.isButton()) {
-        if (interaction.customId.startsWith('ticket_')) {
+        // Crear Ticket
+        if (interaction.customId === 'crear_ticket') {
+            const guild = interaction.guild;
+            const user = interaction.user;
+
+            const canalExistente = guild.channels.cache.find(c => c.name === `ticket-${user.username.toLowerCase()}`);
+            if (canalExistente) {
+                return interaction.reply({ content: `❌ Ya tienes un ticket abierto en ${canalExistente}`, ephemeral: true });
+            }
+
             await interaction.deferReply({ ephemeral: true });
 
-            try {
-                const channel = await interaction.guild.channels.create({
-                    name: `ticket-${interaction.user.username}`,
-                    type: ChannelType.GuildText,
-                    parent: TICKET_CATEGORY_ID,
-                    permissionOverwrites: [
-                        {
-                            id: interaction.guild.id,
-                            deny: [PermissionsBitField.Flags.ViewChannel],
-                        },
-                        {
-                            id: interaction.user.id,
-                            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-                        },
-                        {
-                            id: STAFF_ROLE_ID,
-                            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-                        },
-                    ],
-                });
+            const ticketChannel = await guild.channels.create({
+                name: `ticket-${user.username}`,
+                type: 0,
+                permissionOverwrites: [
+                    {
+                        id: guild.id,
+                        deny: [PermissionsBitField.Flags.ViewChannel]
+                    },
+                    {
+                        id: user.id,
+                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory]
+                    },
+                    {
+                        id: client.user.id,
+                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages]
+                    }
+                ]
+            });
 
-                // Embed con diseño profesional y formal
-                const ticketEmbed = new EmbedBuilder()
-                    .setColor('#2B2D31')
-                    .setTitle('🔒 Sistema de Gestión de Tickets')
-                    .setDescription(
-                        'Gracias por ponerte en contacto con el equipo de **Black Market**.\n\n' +
-                        'Un miembro de nuestro <@&' + STAFF_ROLE_ID + '> se encargará de atender tu solicitud a la brevedad posible. Por favor, detalla tu consulta o motivo de apertura en este canal.'
-                    )
-                    .addFields(
-                        { name: '👤 Usuario', value: `<@${interaction.user.id}>`, inline: true },
-                        { name: '📌 Estado', value: '🟢 Pendiente de atención', inline: true }
-                    )
-                    .setFooter({ text: 'Black Market • Sistema de Soporte Seguro', iconURL: interaction.guild.iconURL() })
-                    .setTimestamp();
+            // Registramos el ticket con 0 horas inactivas
+            ticketInactivity.set(ticketChannel.id, { userId: user.id, hoursInactive: 0 });
 
-                const ticketButtons = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId('claim_ticket').setLabel('Reclamar Ticket').setStyle(ButtonStyle.Success).setEmoji('🛡️'),
-                    new ButtonBuilder().setCustomId('close_ticket').setLabel('Cerrar Ticket').setStyle(ButtonStyle.Danger).setEmoji('🔒')
-                );
+            const embedTicket = new EmbedBuilder()
+                .setTitle(`🎫 Ticket de Soporte - ${user.tag}`)
+                .setDescription('¡Gracias por contactar con **Black Market**! Un staff te atenderá pronto.\n\n⚠️ **Aviso:** Si dejas de responder por **24 horas**, este ticket se cerrará automáticamente.')
+                .setColor('#5865F2');
 
-                await channel.send({ content: `<@${interaction.user.id}> | <@&${STAFF_ROLE_ID}>`, embeds: [ticketEmbed], components: [ticketButtons] });
-                await interaction.editReply({ content: `¡Ticket creado con éxito! Ve al canal: ${channel}` });
-            } catch (error) {
-                console.error("ERROR REAL:", error);
-                await interaction.editReply({ content: `Error al crear: ${error.message}` });
-            }
+            const rowTicket = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('reclamar_ticket')
+                    .setLabel('🙋‍♂️ Reclamar Ticket')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('cerrar_ticket_btn')
+                    .setLabel('🔒 Cerrar Ticket')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
+            await ticketChannel.send({ content: `${user} ¡Bienvenido a tu ticket!`, embeds: [embedTicket], components: [rowTicket] });
+            await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado con éxito! Entra aquí: ${ticketChannel}` });
         }
 
-        if (interaction.customId === 'claim_ticket') {
-            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID)) {
-                return interaction.reply({ content: '❌ Solo el personal de Staff puede reclamar este ticket.', ephemeral: true });
+        // Reclamar Ticket (Bloqueo de 1 solo reclamo)
+        if (interaction.customId === 'reclamar_ticket') {
+            const staff = interaction.user;
+            const message = interaction.message;
+
+            const botonReclamar = message.components[0].components.find(c => c.customId === 'reclamar_ticket');
+            if (botonReclamar && botonReclamar.disabled) {
+                return interaction.reply({ content: '❌ Este ticket ya ha sido reclamado anteriormente.', ephemeral: true });
             }
 
-            const currentEmbed = interaction.message.embeds[0];
-            const updatedEmbed = EmbedBuilder.from(currentEmbed)
-                .setColor('#3498DB')
-                .setFields(
-                    { name: '👤 Usuario', value: currentEmbed.fields[0].value, inline: true },
-                    { name: '📌 Estado', value: `🛡️ Atendido por **${interaction.user.tag}**`, inline: true }
-                );
+            const rowModificada = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('reclamar_ticket')
+                    .setLabel(`Reclamado por ${staff.username}`)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true),
+                new ButtonBuilder()
+                    .setCustomId('cerrar_ticket_btn')
+                    .setLabel('🔒 Cerrar Ticket')
+                    .setStyle(ButtonStyle.Danger)
+            );
 
-            await interaction.update({ embeds: [updatedEmbed], components: [interaction.message.components[0]] });
-            await interaction.followUp({ content: `> 🛡️ El miembro del staff **${interaction.user.tag}** ha reclamado este ticket.` });
+            await message.edit({ components: [rowModificada] });
+            await interaction.reply({ content: `✅ <@${staff.id}> ha reclamado este ticket y se hará cargo de la atención.` });
         }
 
-        if (interaction.customId === 'close_ticket') {
-            if (!interaction.member.roles.cache.has(STAFF_ROLE_ID) && interaction.user.id !== interaction.channel.topic) {
-                // Validación opcional para que solo staff o el creador cierre (por ahora abierto al staff)
-            }
-            await interaction.reply({ content: '🔒 **Cerrando este ticket en 3 segundos...** Guardando historial y eliminando canal.' });
-            setTimeout(async () => {
-                try {
-                    await interaction.channel.delete();
-                } catch (e) {
-                    console.error(e);
-                }
-            }, 3000);
+        // Botón Cerrar Rápido
+        if (interaction.customId === 'cerrar_ticket_btn') {
+            ticketInactivity.delete(interaction.channel.id);
+            await interaction.reply('🔒 Este ticket se cerrará en 3 segundos...');
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
         }
     }
 });
 
-client.login(TOKEN);
+client.login('TU_TOKEN_DE_DISCORD_AQUI');
