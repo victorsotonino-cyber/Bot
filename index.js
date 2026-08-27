@@ -51,7 +51,7 @@ client.once('ready', async () => {
             .setDescription('Muestra la lista de comandos de tickets disponibles')
     ].map(command => command.toJSON());
 
-    const rest = new REST({ version: '10' }).setToken('TU_TOKEN_DE_DISCORD_AQUI');
+    const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
 
     try {
         await rest.put(
@@ -272,4 +272,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login('TU_TOKEN_DE_DISCORD_AQUI');
+client.login(process.env.DISCORD_TOKEN);
