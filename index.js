@@ -387,4 +387,4 @@ client.on('interactionCreate', async interaction => {
     }
 });
 
-client.login(process.env.
+client.login(process.env.TOKEN);
