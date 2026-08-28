@@ -26,6 +26,14 @@ client.once('ready', async () => {
             .setName('cerrar')
             .setDescription('Cierra el ticket actual'),
         new SlashCommandBuilder()
+            .setName('alerta')
+            .setDescription('Envía un aviso oficial del staff dentro del ticket')
+            .addStringOption(option =>
+                option.setName('mensaje')
+                    .setDescription('Mensaje de alerta para el usuario')
+                    .setRequired(true))
+            .setDefaultMemberPermissions(PermissionsBitField.Flags.ManageChannels),
+        new SlashCommandBuilder()
             .setName('rename')
             .setDescription('Cambia el nombre del canal del ticket')
             .addStringOption(option => 
@@ -102,22 +110,22 @@ client.on('interactionCreate', async interaction => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, channel, user, guild } = interaction;
 
-        // /setup-ticket (Panel colorido y decorado)
+        // /setup-ticket (Panel principal)
         if (commandName === 'setup-ticket') {
             const embed = new EmbedBuilder()
                 .setTitle('<:SeekL_Money:1541133185432293488>  BLACK MARKET • CENTRO DE SOPORTE  <:SeekL_Money:1541133185432293488>')
                 .setDescription(
                     '¡Bienvenido al sistema oficial de atención al cliente de **Black Market**! <:emoji_13:1541198277888835614>\n\n' +
-                    'Para brindarte una atención rápida, ordenada y personalizada, por favor selecciona el departamento adecuado en el menú desplegable de abajo. <:emoji_17:1541450983366987977>\n\n' +
+                    'Para brindarte una atención rápida y ordenada, selecciona el departamento adecuado en el menú desplegable de abajo. <:emoji_17:1541450983366987977>\n\n' +
                     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'
                 )
                 .addFields(
-                    { name: '<:SeekL_Money:1541133185432293488>  Compras y Pagos', value: 'Adquiere productos exclusivos, saldo o reporta transacciones.', inline: false },
-                    { name: '<:emoji_3:1541134633033539664>  Soporte Técnico', value: 'Problemas al recibir artículos o fallas con algún servicio adquirido.', inline: false },
-                    { name: '<:emoji_18:1542545895608942602>  Dudas Generales', value: 'Consultas sobre stock, precios o información general de la tienda.', inline: false }
+                    { name: '<:SeekL_Money:1541133185432293488>  Compras y Pagos', value: 'Adquiere productos exclusivos o reporta transacciones.', inline: false },
+                    { name: '<:emoji_3:1541134633033539664>  Soporte Técnico', value: 'Problemas al recibir artículos o fallas con algún servicio.', inline: false },
+                    { name: '<:emoji_18:1542545895608942602>  Dudas Generales', value: 'Consultas sobre stock, precios o información de la tienda.', inline: false }
                 )
-                .setColor('#5865F2') // Color vibrante e llamativo
-                .setImage('https://i.imgur.com/37m4xJ9.png') // Línea decorativa visual (puedes cambiarla o quitarla)
+                .setColor('#5865F2')
+                .setImage('https://i.imgur.com/37m4xJ9.png')
                 .setThumbnail(guild.iconURL({ dynamic: true }))
                 .setFooter({ text: 'Black Market • Todos los derechos reservados', iconURL: client.user.displayAvatarURL() });
 
@@ -127,7 +135,7 @@ client.on('interactionCreate', async interaction => {
                 .addOptions([
                     {
                         label: 'Compras y Pagos',
-                        description: 'Atención exclusiva para compras y transacciones',
+                        description: 'Atención exclusiva para compras y pagos',
                         value: 'categoria_compras',
                         emoji: { name: 'SeekL_Money', id: '1541133185432293488' }
                     },
@@ -155,10 +163,25 @@ client.on('interactionCreate', async interaction => {
             return interaction.reply({ content: '❌ Este comando solo se puede usar dentro de un canal de ticket.', ephemeral: true });
         }
 
+        // /cerrar (Comando de texto)
         if (commandName === 'cerrar') {
             ticketInactivity.delete(channel.id);
-            await interaction.reply('🔒 *Cerrando ticket en 5 segundos...*');
-            setTimeout(() => channel.delete().catch(() => {}), 5000);
+            await interaction.reply('🔒 *Cerrando ticket y eliminando canal en 3 segundos...*');
+            setTimeout(() => channel.delete().catch(() => {}), 3000);
+            return;
+        }
+
+        // /alerta (Comando del staff para enviar avisos dentro del ticket)
+        if (commandName === 'alerta') {
+            const textoAlerta = options.getString('mensaje');
+            const embedAlerta = new EmbedBuilder()
+                .setTitle('🚨 AVISO OFICIAL DEL STAFF')
+                .setDescription(textoAlerta)
+                .setColor('#FF0000')
+                .setFooter({ text: `Alerta enviada por ${user.username}`, iconURL: user.displayAvatarURL() });
+
+            await interaction.reply({ embeds: [embedAlerta] });
+            return;
         }
 
         if (commandName === 'rename') {
@@ -193,8 +216,9 @@ client.on('interactionCreate', async interaction => {
                 .setDescription('Lista de comandos disponibles para el manejo interno:')
                 .addFields(
                     { name: '/setup-ticket', value: 'Envía el panel principal (Admin).' },
+                    { name: '/alerta <mensaje>', value: 'Envía un aviso oficial del staff.' },
+                    { name: '/cerrar', value: 'Cierra y borra el ticket actual.' },
                     { name: '/rename <nombre>', value: 'Modifica el nombre del canal actual.' },
-                    { name: '/cerrar', value: 'Inicia el cierre y borrado del ticket.' },
                     { name: '/añadir @usuario', value: 'Da acceso a un usuario.' },
                     { name: '/remover @usuario', value: 'Quita el acceso a un usuario.' }
                 )
@@ -204,7 +228,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // Manejo del Menú Desplegable (Creación del ticket con diseño colorido)
+    // Manejo del Menú Desplegable (Creación del ticket con la foto que mandaste)
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'seleccionar_seccion_ticket') {
             const guild = interaction.guild;
@@ -257,6 +281,7 @@ client.on('interactionCreate', async interaction => {
 
             ticketInactivity.set(ticketChannel.id, { userId: user.id, hoursInactive: 0 });
 
+            // ENLACE DE TU FOTO INTEGRADO EN EL TICKET INTERNO
             const embedTicket = new EmbedBuilder()
                 .setTitle(`${emojiCategoria} TICKET • ${tituloCategoria.toUpperCase()} ${emojiCategoria}`)
                 .setDescription(
@@ -264,11 +289,12 @@ client.on('interactionCreate', async interaction => {
                     `Has seleccionado la sección: **${tituloCategoria}** <:emoji_13:1541198277888835614>\n\n` +
                     `> 📌 **Instrucciones:** Explica detalladamente tu caso, envía comprobantes si es necesario y espera pacientemente. Un miembro del equipo te atenderá lo antes posible.`
                 )
+                .setImage('https://i.ibb.co/68H187d/blackmarket.png') // Imagen de tu logo subida y adaptada
                 .addFields(
                     { name: '<:emoji_17:1541450983366987977> Estado del Canal', value: '`Activo y en espera`', inline: true },
                     { name: '<:emoji_14:1541198324160536696> Aviso de Inactividad', value: 'Si dejas de responder por **24 horas**, el canal se cerrará automáticamente.', inline: false }
                 )
-                .setColor('#00FFCC') // Color brillante y moderno para el ticket interno
+                .setColor('#00FFCC')
                 .setFooter({ text: 'Black Market • Sistema de Tickets Seguro', iconURL: client.user.displayAvatarURL() });
 
             const rowTicket = new ActionRowBuilder().addComponents(
@@ -287,7 +313,7 @@ client.on('interactionCreate', async interaction => {
         }
     }
 
-    // Manejo de Botones (Reclamar y Cerrar)
+    // Manejo corregido de Botones (Ahora el botón de cerrar SÍ borra el canal correctamente)
     if (interaction.isButton()) {
         if (interaction.customId === 'reclamar_ticket') {
             const staff = interaction.user;
@@ -316,8 +342,8 @@ client.on('interactionCreate', async interaction => {
 
         if (interaction.customId === 'cerrar_ticket_btn') {
             ticketInactivity.delete(interaction.channel.id);
-            await interaction.reply('🔒 *Este ticket se eliminará en 3 segundos...*');
-            setTimeout(() => channel.delete().catch(() => {}), 3000);
+            await interaction.reply('🔒 *Cerrando ticket y eliminando canal en 3 segundos...*');
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
         }
     }
 });
