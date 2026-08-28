@@ -12,9 +12,6 @@ const client = new Client({
 // ID de la categoría para los tickets
 const CATEGORIA_TICKETS_ID = '1541179201648992296';
 
-// Mapa para rastrear inactividad: { channelId: { userId, hoursInactive } }
-const ticketInactivity = new Map();
-
 client.once('ready', async () => {
     console.log(`¡Bot conectado como ${client.user.tag}!`);
     client.user.setActivity('Black Market | /setup-ticket', { type: 3 });
@@ -77,39 +74,6 @@ client.once('ready', async () => {
     } catch (error) {
         console.error('Error al registrar comandos:', error);
     }
-
-    // Tarea en segundo plano: control de inactividad de 24 horas
-    setInterval(async () => {
-        for (const [channelId, data] of ticketInactivity.entries()) {
-            const channel = client.channels.cache.get(channelId);
-            if (!channel) {
-                ticketInactivity.delete(channelId);
-                continue;
-            }
-
-            data.hoursInactive += 1;
-
-            if (data.hoursInactive >= 24) {
-                await channel.send('🔒 *Este ticket se ha cerrado automáticamente por inactividad prolongada (24 horas sin respuesta).*');
-                setTimeout(() => channel.delete().catch(() => {}), 5000);
-                ticketInactivity.delete(channelId);
-            } else {
-                await channel.send(`⚠️ <@${data.userId}>, llevas **${data.hoursInactive} hora(s)** sin responder en este ticket. Si cumples 24 horas sin actividad, se cerrará automáticamente.`);
-            }
-        }
-    }, 3600000); 
-});
-
-// Reiniciar contador si el usuario escribe
-client.on('messageCreate', async message => {
-    if (message.author.bot) return;
-
-    if (ticketInactivity.has(message.channel.id)) {
-        const data = ticketInactivity.get(message.channel.id);
-        if (message.author.id === data.userId) {
-            data.hoursInactive = 0; 
-        }
-    }
 });
 
 // Manejador central de interacciones
@@ -167,7 +131,7 @@ client.on('interactionCreate', async interaction => {
                 return interaction.reply({ content: '✅ ¡Panel colorido de tickets enviado con éxito!', ephemeral: true });
             }
 
-            // /emojis (Muestra todos los emojis de la tienda en un panel elegante)
+            // /emojis
             if (commandName === 'emojis') {
                 const embedEmojis = new EmbedBuilder()
                     .setTitle('<:SeekL_Money:1541133185432293488> CATÁLOGO DE EMOJIS - BLACK MARKET <:SeekL_Money:1541133185432293488>')
@@ -192,7 +156,6 @@ client.on('interactionCreate', async interaction => {
             }
 
             if (commandName === 'cerrar') {
-                ticketInactivity.delete(channel.id);
                 await interaction.reply('🔒 *Cerrando ticket y eliminando canal en 3 segundos...*');
                 setTimeout(() => channel.delete().catch(() => {}), 3000);
                 return;
@@ -250,8 +213,7 @@ client.on('interactionCreate', async interaction => {
                         { name: '/cerrar', value: 'Cierra y elimina el ticket actual de inmediato.' },
                         { name: '/rename <nombre>', value: 'Modifica el nombre del canal actual.' },
                         { name: '/añadir @usuario', value: 'Da acceso a un usuario al ticket.' },
-                        { name: '/remover @usuario', value: 'Quita el acceso a un usuario del ticket.' },
-                        { name: 'Protección Antoinactividad', value: 'Cierre automático tras 24 horas sin respuesta.' }
+                        { name: '/remover @usuario', value: 'Quita el acceso a un usuario del ticket.' }
                     )
                     .setColor('#2b2d31')
                     .setFooter({ text: 'Sistema optimizado y sin errores', iconURL: client.user.displayAvatarURL() });
@@ -313,8 +275,6 @@ client.on('interactionCreate', async interaction => {
                     ]
                 });
 
-                ticketInactivity.set(ticketChannel.id, { userId: user.id, hoursInactive: 0 });
-
                 const embedTicket = new EmbedBuilder()
                     .setTitle(`${emojiCategoria} TICKET • ${tituloCategoria.toUpperCase()} ${emojiCategoria}`)
                     .setDescription(
@@ -324,8 +284,7 @@ client.on('interactionCreate', async interaction => {
                     )
                     .setImage('https://i.ibb.co/68H187d/blackmarket.png')
                     .addFields(
-                        { name: '<:emoji_17:1541450983366987977> Estado del Canal', value: '`Activo y en espera`', inline: true },
-                        { name: '<:emoji_14:1541198324160536696> Aviso de Inactividad', value: 'Si dejas de responder por **24 horas**, el canal se cerrará automáticamente.', inline: false }
+                        { name: '<:emoji_17:1541450983366987977> Estado del Canal', value: '`Activo y en espera`', inline: true }
                     )
                     .setColor('#00FFCC')
                     .setFooter({ text: 'Black Market • Sistema de Tickets Seguro', iconURL: client.user.displayAvatarURL() });
@@ -374,7 +333,6 @@ client.on('interactionCreate', async interaction => {
             }
 
             if (interaction.customId === 'cerrar_ticket_btn') {
-                ticketInactivity.delete(interaction.channel.id);
                 await interaction.reply('🔒 *Cerrando ticket y eliminando canal en 3 segundos...*');
                 setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
             }
