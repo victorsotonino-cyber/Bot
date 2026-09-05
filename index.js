@@ -9,7 +9,7 @@ const client = new Client({
     ]
 });
 
-const TOKEN = "MTU0MzY4OTI1Njk0NDI3MTM3MQ.G9el1G.AFI4IumgpGVH5JukKdlBJbZGLZ-s908TI3GTQo";
+const TOKEN = process.env.DISCORD_TOKEN;
 
 client.once('ready', () => {
     console.log(`¡Bot encendido y conectado como ${client.user.tag}!`);
