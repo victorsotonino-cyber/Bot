@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionsBitField, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -59,7 +59,7 @@ client.on('messageCreate', async message => {
                 .setDescription('Lista completa de comandos organizados para la administración y gestión del servidor de la tienda.')
                 .setColor('#2b2d31')
                 .addFields(
-                    { name: '📂 Sistema de Tickets', value: '`!ticket`, `!ayuda`, `!comandos`, `!soporte`, `!tienda`, `!stock`, `!precios`, `!metodos`, `!compras`, `!catalogo`' },
+                    { name: '📂 Sistema de Tickets & Reviews', value: '`!ticket`, `!setup-vouch`, `!ayuda`, `!comandos`, `!soporte`, `!tienda`, `!stock`, `!precios`, `!catalogo`' },
                     { name: '🛠️ Moderación y Staff', value: '`!ban`, `!kick`, `!mute`, `!unmute`, `!warn`, `!unwarn`, `!purge`, `!lock`, `!unlock`, `!slowmode`' },
                     { name: '⚙️ Configuración y Avisos', value: '`!anuncio`, `!sorteo`, `!reglas`, `!changelog`, `!vips`, `!estado`, `!ping`, `!botinfo`, `!serverinfo`, `!userinfo`' },
                     { name: '💰 Economía y Tienda', value: '`!perfil`, `!saldo`, `!dar`, `!comprar`, `!oferta`, `!inventario`, `!reclamar`, `!promo`, `!descuento`, `!codigo`' },
@@ -67,6 +67,43 @@ client.on('messageCreate', async message => {
                 )
                 .setFooter({ text: 'Usa !comandos para ver detalles avanzados' });
             await message.channel.send({ embeds: [embed] });
+            break;
+        }
+        case 'setup-vouch': {
+            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ No tienes permisos para configurar el sistema de reviews.');
+            
+            const embed = new EmbedBuilder()
+                .setColor('#f1c40f')
+                .setTitle('🌙 Lunar Market Vouch System')
+                .setDescription(
+                    '**✨ Share Your Experience & Rate Us!**\n\n' +
+                    '🌟 **Help Us Grow!** 🌟\n' +
+                    '> You purchased something from Lunar Market?\n' +
+                    '> Please leave your honest feedback!\n\n' +
+                    '> We appreciate every review. Click the button below to begin.\n\n' +
+                    '⭐ **How It Works**\n' +
+                    '> • Click **Rate Lunar Market**.\n' +
+                    '> • Tell us about your new product.\n' +
+                    '> • Give us a 1 to 5 star rating.\n' +
+                    '> • (Optional) Select the staff member you worked with.\n\n' +
+                    '💎 *Your honest feedback helps us improve the Lunar Market experience for everyone!*'
+                );
+
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder()
+                        .setCustomId('open_vouch_modal')
+                        .setLabel('Rate Lunar Market')
+                        .setStyle(ButtonStyle.Success)
+                        .setEmoji('✅'),
+                    new ButtonBuilder()
+                        .setCustomId('view_vouches')
+                        .setLabel('View Lunar Market Vouchfeed')
+                        .setStyle(ButtonStyle.Secondary)
+                        .setEmoji('📋')
+                );
+
+            await message.channel.send({ embeds: [embed], components: [row] });
             break;
         }
         case 'comandos': {
@@ -87,10 +124,6 @@ client.on('messageCreate', async message => {
         }
         case 'precios': {
             await message.channel.send('💵 Consulta la lista oficial de precios y tarifas vigentes dentro de los canales dedicados de la tienda.');
-            break;
-        }
-        case 'metodos': {
-            await message.channel.send('💳 Métodos de pago aceptados: Criptomonedas, saldo de plataformas y transferencias directas (verifícalo en soporte).');
             break;
         }
         case 'compras': {
@@ -262,93 +295,165 @@ client.on('messageCreate', async message => {
 });
 
 // ==========================================
-// GESTIÓN DE INTERACCIONES DE TICKETS (MEJORADO)
+// GESTIÓN DE INTERACCIONES (TICKETS Y REVIEWS)
 // ==========================================
 
 client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-
     const guild = interaction.guild;
     const member = interaction.member;
 
-    const departmentMap = {
-        'ticket_compras': 'Compras y Pagos',
-        'ticket_soporte': 'Soporte Técnico',
-        'ticket_dudas': 'Dudas Generales'
-    };
+    // 1. Manejo de Botones (Tickets y Abrir Modal de Review)
+    if (interaction.isButton()) {
+        const departmentMap = {
+            'ticket_compras': 'Compras y Pagos',
+            'ticket_soporte': 'Soporte Técnico',
+            'ticket_dudas': 'Dudas Generales'
+        };
 
-    if (departmentMap[interaction.customId]) {
-        const deptName = departmentMap[interaction.customId];
+        if (departmentMap[interaction.customId]) {
+            const deptName = departmentMap[interaction.customId];
 
-        const existingChannel = guild.channels.cache.find(c => c.name === `ticket-${member.user.username.toLowerCase()}`);
-        if (existingChannel) {
-            return interaction.reply({ content: '❌ Ya tienes un ticket abierto actualmente.', ephemeral: true });
+            const existingChannel = guild.channels.cache.find(c => c.name === `ticket-${member.user.username.toLowerCase()}`);
+            if (existingChannel) {
+                return interaction.reply({ content: '❌ Ya tienes un ticket abierto actualmente.', ephemeral: true });
+            }
+
+            await interaction.deferReply({ ephemeral: true });
+
+            try {
+                const ticketChannel = await guild.channels.create({
+                    name: `ticket-${member.user.username}`,
+                    type: ChannelType.GuildText,
+                    permissionOverwrites: [
+                        {
+                            id: guild.id,
+                            deny: [PermissionsBitField.Flags.ViewChannel],
+                        },
+                        {
+                            id: member.id,
+                            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
+                        },
+                        {
+                            id: client.user.id,
+                            allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels],
+                        }
+                    ],
+                });
+
+                const embedTicket = new EmbedBuilder()
+                    .setTitle(`🛒 Ticket Oficial — ${member.user.tag}`)
+                    .setDescription(`**Departamento Asignado:** ${deptName}\n\nUn miembro del **staff** atenderá tu caso a la brevedad posible. Por favor, detalla tu solicitud con claridad.\n\nUtiliza los botones inferiores para gestionar el estado del ticket de forma segura.`)
+                    .setColor('#00ffcc')
+                    .setFooter({ text: 'Black Market • Gestión Profesional de Atención' });
+
+                const rowTicketButtons = new ActionRowBuilder()
+                    .addComponents(
+                        new ButtonBuilder()
+                            .setCustomId('claim_ticket')
+                            .setLabel('Reclamar')
+                            .setEmoji('🛠️')
+                            .setStyle(ButtonStyle.Primary),
+                        new ButtonBuilder()
+                            .setCustomId('close_ticket')
+                            .setLabel('Cerrar Ticket')
+                            .setEmoji('🔒')
+                            .setStyle(ButtonStyle.Danger)
+                    );
+
+                await ticketChannel.send({ content: `${member}`, embeds: [embedTicket], components: [rowTicketButtons] });
+                await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado con éxito! Dirígete a ${ticketChannel}.` });
+
+            } catch (error) {
+                console.error(error);
+                await interaction.editReply({ content: '❌ Hubo un error crítico al crear el canal de ticket.' });
+            }
+            return;
         }
 
-        await interaction.deferReply({ ephemeral: true });
-
-        try {
-            const ticketChannel = await guild.channels.create({
-                name: `ticket-${member.user.username}`,
-                type: ChannelType.GuildText,
-                permissionOverwrites: [
-                    {
-                        id: guild.id,
-                        deny: [PermissionsBitField.Flags.ViewChannel],
-                    },
-                    {
-                        id: member.id,
-                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory],
-                    },
-                    {
-                        id: client.user.id,
-                        allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels],
-                    }
-                ],
-            });
-
-            const embedTicket = new EmbedBuilder()
-                .setTitle(`🛒 Ticket Oficial — ${member.user.tag}`)
-                .setDescription(`**Departamento Asignado:** ${deptName}\n\nUn miembro del **staff** atenderá tu caso a la brevedad posible. Por favor, detalla tu solicitud con claridad.\n\nUtiliza los botones inferiores para gestionar el estado del ticket de forma segura.`)
-                .setColor('#00ffcc')
-                .setFooter({ text: 'Black Market • Gestión Profesional de Atención' });
-
-            const rowTicketButtons = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder()
-                        .setCustomId('claim_ticket')
-                        .setLabel('Reclamar')
-                        .setEmoji('🛠️')
-                        .setStyle(ButtonStyle.Primary),
-                    new ButtonBuilder()
-                        .setCustomId('close_ticket')
-                        .setLabel('Cerrar Ticket')
-                        .setEmoji('🔒')
-                        .setStyle(ButtonStyle.Danger)
-                );
-
-            await ticketChannel.send({ content: `${member}`, embeds: [embedTicket], components: [rowTicketButtons] });
-            await interaction.editReply({ content: `✅ ¡Tu ticket ha sido creado con éxito! Dirígete a ${ticketChannel}.` });
-
-        } catch (error) {
-            console.error(error);
-            await interaction.editReply({ content: '❌ Hubo un error crítico al crear el canal de ticket.' });
+        if (interaction.customId === 'claim_ticket') {
+            await interaction.reply({ content: `🛠️ Ticket reclamado oficialmente por el miembro del staff ${member} (${member.user.tag}).` });
+            return;
         }
-        return;
+
+        if (interaction.customId === 'close_ticket') {
+            const channel = interaction.channel;
+            await interaction.reply({ content: '🔒 Cerrando ticket de forma segura en 5 segundos...' });
+            setTimeout(() => {
+                channel.delete().catch(() => {});
+            }, 5000);
+            return;
+        }
+
+        // Botón para desplegar el formulario de Vouch / Review
+        if (interaction.customId === 'open_vouch_modal') {
+            const modal = new ModalBuilder()
+                .setCustomId('vouch_modal_submit')
+                            .setTitle('Lunar Market â€¢ Vouch');
+
+            const productInput = new TextInputBuilder()
+                .setCustomId('vouch_product')
+                .setLabel('Product / Service')
+                .setPlaceholder('Â¿QuÃ© producto adquiriste?')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const ratingInput = new TextInputBuilder()
+                .setCustomId('vouch_rating')
+                .setLabel('Rating 1-5')
+                .setPlaceholder('5')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const feedbackInput = new TextInputBuilder()
+                .setCustomId('vouch_feedback')
+                .setLabel('Your Feedback')
+                .setPlaceholder('CuÃ©ntanos tu experiencia de compra...')
+                .setStyle(TextInputStyle.Paragraph)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(productInput),
+                new ActionRowBuilder().addComponents(ratingInput),
+                new ActionRowBuilder().addComponents(feedbackInput)
+            );
+
+            await interaction.showModal(modal);
+            return;
+        }
+
+        if (interaction.customId === 'view_vouches') {
+            await interaction.reply({ content: 'ðŸ“‹ El registro pÃºblico de reseÃ±as y vouchfeed se encuentra sincronizado en los canales correspondientes.', ephemeral: true });
+            return;
+        }
     }
 
-    if (interaction.customId === 'claim_ticket') {
-        await interaction.reply({ content: `🛠️ Ticket reclamado oficialmente por el miembro del staff ${member} (${member.user.tag}).` });
-        return;
-    }
+    // 2. Manejo de EnvÃ­o de Formularios (Modales - Vouch / Review)
+    if (interaction.isModalSubmit()) {
+        if (interaction.customId === 'vouch_modal_submit') {
+            const product = interaction.fields.getTextInputValue('vouch_product');
+            const rawRating = parseInt(interaction.fields.getTextInputValue('vouch_rating')) || 5;
+            const feedback = interaction.fields.getTextInputValue('vouch_feedback');
 
-    if (interaction.customId === 'close_ticket') {
-        const channel = interaction.channel;
-        await interaction.reply({ content: '🔒 Cerrando ticket de forma segura en 5 segundos...' });
-        setTimeout(() => {
-            channel.delete().catch(() => {});
-        }, 5000);
-        return;
+            const rating = Math.min(Math.max(rawRating, 1), 5);
+            const stars = 'â­'.repeat(rating);
+
+            const reviewEmbed = new EmbedBuilder()
+                .setColor('#f1c40f')
+                .setTitle('ðŸŒ™ Lunar Market | Customer Feedback')
+                .setDescription('A new customer review has been submitted.')
+                .addFields(
+                    { name: 'Product', value: product, inline: false },
+                    { name: 'Rating', value: `${stars} (${rating}/5)`, inline: false },
+                    { name: 'Comment', value: feedback, inline: false }
+                )
+                .setFooter({ text: `Review enviada por ${interaction.user.tag}` });
+
+            await interaction.reply({ content: `âœ… Â¡Tu review ha sido registrada con Ã©xito en **Lunar Market**! Gracias por tu confianza.`, ephemeral: true });
+            
+            // Opcional: si quieres enviarlo automÃ¡ticamente al mismo canal donde dio click:
+            await interaction.channel.send({ embeds: [reviewEmbed] });
+            return;
+        }
     }
 });
 
