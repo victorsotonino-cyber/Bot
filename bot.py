@@ -12,7 +12,6 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # IDs configurados
 ROLE_TO_TAG = 1451204772672831564
-TICKETS_CATEGORY_ID = 1548098171337703547
 
 # --- VISTA DENTRO DEL TICKET (Reclamar y Cerrar) ---
 class TicketActionView(discord.ui.View):
@@ -21,7 +20,6 @@ class TicketActionView(discord.ui.View):
 
     @discord.ui.button(label="Reclamar", style=discord.ButtonStyle.primary, emoji="<:aprobado_cherrybox:1488944560775102544>")
     async def claim_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Verifica si el usuario tiene permisos de staff/administrador o el rol de soporte
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message("❌ No tienes permisos para reclamar tickets.", ephemeral=True)
         
@@ -53,12 +51,9 @@ class TicketSelect(discord.ui.Select):
         ticket_type = self.values[0]
         guild = interaction.guild
         
-        # Buscar la categoría por ID configurada
-        category = guild.get_channel(TICKETS_CATEGORY_ID)
-        if not category or not isinstance(category, discord.CategoryChannel):
-            category = await guild.create_category("TICKETS")
+        # Canal suelto sin categoría fija para evitar errores
+        category = None
 
-        # Permisos del canal de ticket privado
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             interaction.user: discord.PermissionOverwrite(view_channel=True, send_messages=True, read_message_history=True),
@@ -66,10 +61,8 @@ class TicketSelect(discord.ui.Select):
         }
 
         channel_name = f"ticket-{ticket_type.lower()}-{interaction.user.name}"
-        ticket_channel = await guild.text_channel(name=channel_name, category=category, overwrites=overwrites)
+        ticket_channel = await guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
 
-        # Mensaje dentro del ticket etiquetando al rol y al usuario
-        role_mention = f"<&{ROLE_TO_TAG}>"
         embed_ticket = discord.Embed(
             title=f"<:Crown:1488947497278902312> Ticket de {ticket_type}",
             description=f"Hola {interaction.user.mention}, bienvenido a tu ticket.\n\n> <@&{ROLE_TO_TAG}> Un miembro del staff te atenderá en breve. Por favor detalla tu duda o problema.",
@@ -115,21 +108,18 @@ async def panel(ctx):
 # --- COMANDOS DE MODERACIÓN Y SORTEOS (!) ---
 # ==========================================
 
-# Comando Kick (!kick @usuario [razon])
 @bot.command()
 @commands.has_permissions(kick_members=True)
 async def kick(ctx, member: discord.Member, *, reason="Sin razón especificada"):
     await member.kick(reason=reason)
     await ctx.send(f"<:aprobado_cherrybox:1488944560775102544> El usuario **{member.name}** ha sido expulsado correctamente. Razón: *{reason}*")
 
-# Comando Ban (!ban @usuario [razon])
 @bot.command()
 @commands.has_permissions(ban_members=True)
 async def ban(ctx, member: discord.Member, *, reason="Sin razón especificada"):
     await member.ban(reason=reason)
     await ctx.send(f"<:aprobado_cherrybox:1488944560775102544> El usuario **{member.name}** ha sido baneado correctamente. Razón: *{reason}*")
 
-# Comando Limpiar / Purgar mensajes (!clear [cantidad])
 @bot.command()
 @commands.has_permissions(manage_messages=True)
 async def clear(ctx, amount: int):
@@ -138,11 +128,9 @@ async def clear(ctx, amount: int):
     await asyncio.sleep(3)
     await msg.delete()
 
-# Comando Silenciar / Mute (!mute @usuario)
 @bot.command()
 @commands.has_permissions(manage_roles=True)
 async def mute(ctx, member: discord.Member):
-    # Requiere que tengas un rol llamado 'Muted' en tu servidor
     role = discord.utils.get(ctx.guild.roles, name="Muted")
     if not role:
         try:
@@ -155,7 +143,6 @@ async def mute(ctx, member: discord.Member):
     await member.add_roles(role)
     await ctx.send(f"<:aprobado_cherrybox:1488944560775102544> El usuario **{member.name}** ha sido silenciado.")
 
-# Comando de Sorteo básico (!sorteo [premio])
 @bot.command()
 @commands.has_permissions(manage_guild=True)
 async def sorteo(ctx, *, premio: str):
@@ -167,8 +154,6 @@ async def sorteo(ctx, *, premio: str):
     embed.set_footer(text=f"Sorteo organizado por {ctx.author.name}")
     
     msg = await ctx.send(embed=embed)
-    # Usar el emoji personalizado en la reacción del bot
     await msg.add_reaction("<:regalo_cherrybox:1488944546510409911>")
 
-# Iniciar el bot
 bot.run(os.getenv("DISCORD_TOKEN"))
