@@ -1,0 +1,17 @@
+{
+  "name": "discord-multipurpose-bot",
+  "version": "2.5.0",
+  "description": "Bot completo de Discord con Tickets (Flashy+Ghost), Tienda, Moderación, Bienvenidas y Sorteos",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
